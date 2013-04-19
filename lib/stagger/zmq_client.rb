@@ -6,13 +6,10 @@ module Stagger
 
     TIMEOUT = 13
 
-    # We may re-register, in which case we should use a unique socket name
-    @@sock_incr = 0
-
     def initialize(reg_address = "tcp://127.0.0.1:5867")
-      # TODO: Should use /var/run or something?
-      # This should be configurable?
-      @mysock = "ipc:///tmp/stagger_#{Process.pid}_#{@@sock_incr+=1}.zmq"
+      @pair = Stagger.zmq.socket(ZMQ::PAIR)
+      @pair.bind("tcp://127.0.0.1:*")
+      @mysock = @pair.getsockopt(ZMQ::LAST_ENDPOINT).chomp("\0")
 
       reg = Stagger.zmq.socket(ZMQ::PUSH)
       reg.connect(reg_address)
@@ -20,9 +17,6 @@ module Stagger
         "Name" => "ruby#{rand(10)}", # TODO
         "Address" => @mysock,
       }))
-
-      @pair = Stagger.zmq.socket(ZMQ::PAIR)
-      @pair.bind(@mysock)
 
       # Ping the backend immediately since the only way for the backend to
       # detect that this PAIR connection has opened is to receive activity
