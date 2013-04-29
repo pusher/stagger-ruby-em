@@ -13,6 +13,6 @@ module Stagger
 end
 
 require 'stagger/event_emitter'
-require 'stagger/zmq_client'
+require 'stagger/protocol'
 require 'stagger/client'
 require 'stagger/distribution'

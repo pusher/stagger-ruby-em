@@ -32,9 +32,9 @@ module Stagger
     private
 
     def register(reg_address)
-      @zmq_client = ZMQClient.new(reg_address)
+      @zmq_client = Protocol.new(reg_address)
       @zmq_client.on(:command, &method(:command))
-      @zmq_client.on(:terminated) {
+      @zmq_client.on(:disconnected) {
         puts "Connection to client lost, reregistering"
         register(reg_address)
       }
