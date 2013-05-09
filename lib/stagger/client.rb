@@ -70,7 +70,8 @@ module Stagger
         }, false)
 
         @count_callbacks.each do |name, cb|
-          incr(name, *cb.call)
+          c = cb.call
+          incr(name, c) if c
         end
 
         @counters.each do |name, count|
@@ -83,7 +84,8 @@ module Stagger
         @counters = Hash.new { |h,k| h[k] = 0 }
 
         @value_callbacks.each do |name, cb|
-          value(name, *cb.call)
+          vw = *cb.call
+          value(name, *vw) if vw
         end
 
         @values.each do |name, value_dist|
