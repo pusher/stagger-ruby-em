@@ -28,7 +28,12 @@ module Stagger
 
     def value(name, value = nil, weight = 1)
       if @connected
-        @values[name.to_sym].add(block_given? ? yield : value, weight)
+        if block_given?
+          v, w = yield
+          @values[name.to_sym].add(v, w || 1)
+        else
+          @values[name.to_sym].add(value, weight)
+        end
       end
     end
 
@@ -65,14 +70,7 @@ module Stagger
         }, false)
 
         @count_callbacks.each do |name, cb|
-          value = cb.call
-          next if value == 0
-
-          @zmq_client.send({
-            N: name.to_s,
-            T: "c",
-            V: value.to_f, # Currently protocol requires floats...
-          }, false)
+          incr(name, *cb.call)
         end
 
         @counters.each do |name, count|
@@ -85,13 +83,7 @@ module Stagger
         @counters = Hash.new { |h,k| h[k] = 0 }
 
         @value_callbacks.each do |name, cb|
-          value = cb.call.to_f
-
-          @zmq_client.send({
-            N: name.to_s,
-            T: "v",
-            V: value,
-          }, false)
+          value(name, *cb.call)
         end
 
         @values.each do |name, value_dist|
