@@ -22,13 +22,13 @@ module Stagger
 
     def incr(name, count = 1)
       if @connected
-        @counters[name.to_sym] += count
+        @counters[name.to_sym] += block_given? ? yield : count
       end
     end
 
-    def value(name, value, weight = 1)
+    def value(name, value = nil, weight = 1)
       if @connected
-        @values[name.to_sym].add(value, weight)
+        @values[name.to_sym].add(block_given? ? yield : value, weight)
       end
     end
 
