@@ -7,8 +7,7 @@ module Stagger
       @count_callbacks = {}
       @value_callbacks = {}
 
-      @counters = Hash.new { |h,k| h[k] = 0 }
-      @values = Hash.new { |h,k| h[k] = Distribution.new }
+      reset_data
     end
 
     def register_count(name, &block)
@@ -22,20 +21,37 @@ module Stagger
     end
 
     def incr(name, count = 1)
-      @counters[name.to_sym] += count
+      if @connected
+        @counters[name.to_sym] += count
+      end
     end
 
     def value(name, value, weight = 1)
-      @values[name.to_sym].add(value, weight)
+      if @connected
+        @values[name.to_sym].add(value, weight)
+      end
     end
 
     private
 
+    def reset_data
+      @counters = Hash.new { |h,k| h[k] = 0 }
+      @values = Hash.new { |h,k| h[k] = Distribution.new }
+    end
+
     def register(reg_address)
       @zmq_client = Protocol.new(reg_address)
       @zmq_client.on(:command, &method(:command))
+      @zmq_client.on(:connected) {
+        @connected = true
+      }
       @zmq_client.on(:disconnected) {
         puts "Connection to client lost, reregistering"
+        @connected = false
+        # Reset data when disconnected so that old (potentially ancient) data
+        # isn't sent on reconnect, which would be confusing default behaviour
+        # TODO: Maybe make this behaviour configurable?
+        reset_data
         register(reg_address)
       }
     end
