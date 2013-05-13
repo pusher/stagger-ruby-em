@@ -30,9 +30,9 @@ module Stagger
       if @connected
         if block_given?
           v, w = yield
-          @values[name.to_sym].add(v, w || 1)
+          @values[name.to_sym].add(v, w || 1) if v
         else
-          @values[name.to_sym].add(value, weight)
+          @values[name.to_sym].add(value, weight) if value
         end
       end
     end
