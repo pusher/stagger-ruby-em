@@ -61,43 +61,36 @@ module Stagger
       }
     end
 
+    def run_callbacks
+      @count_callbacks.each do |name, cb|
+        c = cb.call
+        incr(name, c) if c
+      end
+
+      @value_callbacks.each do |name, cb|
+        vw = *cb.call
+        value(name, *vw) if vw
+      end
+    end
+
     def command(method, params)
       case method
       when "report_all"
-        @zmq_client.send({
-          Method: "stats_reply",
+        run_callbacks
+
+        body = {
           Timestamp: params["Timestamp"],
-        }, false)
+          Counts: @counters.map do |name, count|
+            {Name: name, Count: count.to_f}
+          end,
+          Dists: @values.map do |name, vd|
+            {Name: name, Dist: vd.to_a.map(&:to_f)}
+          end,
+        }
 
-        @count_callbacks.each do |name, cb|
-          c = cb.call
-          incr(name, c) if c
-        end
+        @zmq_client.send_message("stats_complete", body)
 
-        @counters.each do |name, count|
-          @zmq_client.send({
-            N: name.to_s,
-            T: "c",
-            V: count.to_f, # Currently protocol requires floats...
-          }, false)
-        end
-        @counters = Hash.new { |h,k| h[k] = 0 }
-
-        @value_callbacks.each do |name, cb|
-          vw = *cb.call
-          value(name, *vw) if vw
-        end
-
-        @values.each do |name, value_dist|
-          @zmq_client.send({
-            N: name.to_s,
-            T: "vd",
-            D: value_dist.to_a.map(&:to_f) # weight, min, max, sx, sxx
-          }, false)
-        end
-        @values = Hash.new { |h,k| h[k] = Distribution.new }
-
-        @zmq_client.send(nil)
+        reset_data
       else
         p ["Unknown command", method]
       end

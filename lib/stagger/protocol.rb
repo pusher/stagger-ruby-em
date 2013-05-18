@@ -30,11 +30,8 @@ module Stagger
       emit(:command, method, params)
     end
 
-    # TODO: Intermediary hack
-    def send(reply, final = true)
-      flags = final ? ZMQ::NOBLOCK : (ZMQ::NOBLOCK | ZMQ::SNDMORE)
-      part = reply ? MessagePack.pack(reply) : ""
-      @pair.pair.socket.send_string(part, flags)
+    def send_message(message, body)
+      @pair.send(message, MessagePack.pack(body))
     end
   end
 end
