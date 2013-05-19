@@ -23,6 +23,8 @@ module Pair
         when "ping"
           pong
         when "pong" # NOOP
+        when "pair:shutdown"
+          terminate(0)
         else
           # TODO
           emit(:message, method, part2.copy_out_string)
