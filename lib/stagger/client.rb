@@ -6,6 +6,7 @@ module Stagger
 
       @count_callbacks = {}
       @value_callbacks = {}
+      @callbacks = []
 
       reset_data
     end
@@ -20,9 +21,13 @@ module Stagger
       @value_callbacks[name.to_sym] = block
     end
 
+    def register_cb(&block)
+      @callbacks << block
+    end
+
     def incr(name, count = 1)
       if @connected
-        @counters[name.to_sym] += block_given? ? yield : count
+        @aggregator.incr(name, block_given? ? yield : count)
       end
     end
 
@@ -30,9 +35,9 @@ module Stagger
       if @connected
         if block_given?
           v, w = yield
-          @values[name.to_sym].add(v, w || 1) if v
+          @aggregator.value(name, v, w)
         else
-          @values[name.to_sym].add(value, weight) if value
+          @aggregator.value(name, value, weight)
         end
       end
     end
@@ -40,8 +45,7 @@ module Stagger
     private
 
     def reset_data
-      @counters = Hash.new { |h,k| h[k] = 0 }
-      @values = Hash.new { |h,k| h[k] = Distribution.new }
+      @aggregator = Aggregator.new(@zmq_client)
     end
 
     def register(reg_address)
@@ -61,36 +65,54 @@ module Stagger
       }
     end
 
-    def run_callbacks
+    def run_and_report_sync(ts, aggregator_options)
       @count_callbacks.each do |name, cb|
         c = cb.call
-        incr(name, c) if c
+        @aggregator.incr(name, c) if c
       end
 
       @value_callbacks.each do |name, cb|
         vw = *cb.call
-        value(name, *vw) if vw
+        @aggregator.value(name, *vw) if vw
       end
+
+      @aggregator.report(ts, aggregator_options)
+      reset_data
+    end
+
+    def run_and_report_async(ts)
+      EM::Iterator.new(@callbacks, 10).each(
+        lambda { |cb, iter|
+          aggregator = Aggregator.new(@zmq_client)
+          maybe_df = cb.call(aggregator)
+          if maybe_df.kind_of?(EM::Deferrable)
+            maybe_df.callback {
+              aggregator.report(ts, complete: false)
+              iter.next
+            }.errback {
+              iter.next
+            }
+          else
+            aggregator.report(ts, complete: false)
+            iter.next
+          end
+        },
+        lambda {
+          Aggregator.new(@zmq_client).report(ts, complete: true)
+        }
+      )
     end
 
     def command(method, params)
       case method
       when "report_all"
-        run_callbacks
-
-        body = {
-          Timestamp: params["Timestamp"],
-          Counts: @counters.map do |name, count|
-            {Name: name, Count: count.to_f}
-          end,
-          Dists: @values.map do |name, vd|
-            {Name: name, Dist: vd.to_a.map(&:to_f)}
-          end,
-        }
-
-        @zmq_client.send_message("stats_complete", body)
-
-        reset_data
+        ts = params["Timestamp"]
+        if @callbacks.any?
+          run_and_report_sync(ts, complete: false)
+          run_and_report_async(ts)
+        else
+          run_and_report_sync(ts, complete: true)
+        end
       else
         p ["Unknown command", method]
       end
