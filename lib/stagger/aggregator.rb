@@ -2,8 +2,20 @@ module Stagger
   class Aggregator
     def initialize(zmq_client)
       @zmq_client = zmq_client
+      @deltas = Hash.new
+      reset_data
+    end
+
+    def reset_data()
       @counters = Hash.new { |h,k| h[k] = 0 }
       @values = Hash.new { |h,k| h[k] = Distribution.new }
+    end
+
+    def delta(name, value, weight = 1)
+      if value
+        @values[name.to_sym].add(value.to_f - @deltas[name.to_sym], weight) if @deltas[name.to_sym]
+        @deltas[name.to_sym] = value.to_f
+      end
     end
 
     def incr(name, count = 1)

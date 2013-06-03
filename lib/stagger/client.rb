@@ -6,9 +6,9 @@ module Stagger
 
       @count_callbacks = {}
       @value_callbacks = {}
-      @callbacks = []
-
-      reset_data
+      @callbacks = {}
+      @aggregator = Aggregator.new(@zmq_client)
+      @empty = Aggregator.new(@zmq_client)
     end
 
     def register_count(name, &block)
@@ -22,7 +22,7 @@ module Stagger
     end
 
     def register_cb(&block)
-      @callbacks << block
+      @callbacks[block]=Aggregator.new(@zmq_client)
     end
 
     def incr(name, count = 1)
@@ -45,7 +45,8 @@ module Stagger
     private
 
     def reset_data
-      @aggregator = Aggregator.new(@zmq_client)
+      @aggregator.reset_data
+      @callbacks.values.map(&:reset_data)
     end
 
     def register(reg_address)
@@ -77,28 +78,26 @@ module Stagger
       end
 
       @aggregator.report(ts, aggregator_options)
-      reset_data
     end
 
     def run_and_report_async(ts)
-      EM::Iterator.new(@callbacks, 10).each(
+      EM::Iterator.new(@callbacks.keys, 10).each(
         lambda { |cb, iter|
-          aggregator = Aggregator.new(@zmq_client)
-          maybe_df = cb.call(aggregator)
+          maybe_df = cb.call(@callbacks[cb])
           if maybe_df.kind_of?(EM::Deferrable)
             maybe_df.callback {
-              aggregator.report(ts, complete: false)
+              @callbacks[cb].report(ts, complete: false)
               iter.next
             }.errback {
               iter.next
             }
           else
-            aggregator.report(ts, complete: false)
+            @callbacks[cb].report(ts, complete: false)
             iter.next
           end
         },
         lambda {
-          Aggregator.new(@zmq_client).report(ts, complete: true)
+          @empty.report(ts, complete: true)
         }
       )
     end
@@ -107,6 +106,7 @@ module Stagger
       case method
       when "report_all"
         ts = params["Timestamp"]
+        reset_data
         if @callbacks.any?
           run_and_report_sync(ts, complete: false)
           run_and_report_async(ts)
