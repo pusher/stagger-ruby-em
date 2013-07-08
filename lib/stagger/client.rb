@@ -70,7 +70,7 @@ module Stagger
       end
 
       @value_callbacks.each do |name, cb|
-        vw = *cb.call
+        vw = cb.call
         @aggregator.value(name, *vw) if vw
       end
 
