@@ -55,13 +55,11 @@ module Stagger
         @connected = true
       }
       @zmq_client.on(:disconnected) {
-        puts "Connection to client lost, reregistering"
         @connected = false
         # Reset data when disconnected so that old (potentially ancient) data
         # isn't sent on reconnect, which would be confusing default behaviour
         # TODO: Maybe make this behaviour configurable?
         reset_data
-        register(reg_address)
       }
     end
 

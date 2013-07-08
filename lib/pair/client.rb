@@ -1,11 +1,11 @@
 module Pair
   class Client
-    attr_reader :pair
+    attr_reader :pair, :addr
 
     include EM::ZeroMQ::EventEmitter
 
-    def initialize(pair, timeout = 60)
-      @pair, @timeout = pair, timeout
+    def initialize(addr, pair, timeout = 60)
+      @addr, @pair, @timeout = addr, pair, timeout
       @connected = false
 
       ping

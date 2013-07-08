@@ -2,6 +2,10 @@ module Pair
   class Registration
     def initialize(zmq, reg_addr, timeout = 60)
       @zmq, @reg_addr, @timeout = zmq, reg_addr, timeout
+
+      @registration = @zmq.socket(ZMQ::PUSH)
+      @registration.setsockopt(ZMQ::LINGER, 0)
+      @registration.connect(@reg_addr)
     end
 
     def register_client(metadata = "")
@@ -10,19 +14,17 @@ module Pair
       pair.bind("tcp://127.0.0.1:*")
       addr = pair.getsockopt(ZMQ::LAST_ENDPOINT).chomp("\0")
 
-      registration = @zmq.socket(ZMQ::PUSH)
-      registration.setsockopt(ZMQ::LINGER, 0)
-      registration.connect(@reg_addr)
-
-      registration.send_msg(addr, metadata)
-
-      return Client.new(pair, @timeout).tap { |c|
-        c.on(:connected) {
-          # Wait for the client to connect before disconnecting otherwise the
-          # registration will never arrive
-          registration.disconnect(@reg_addr)
+      return Client.new(addr, pair, @timeout).tap { |c|
+        register(c, metadata)
+        c.on(:disconnected) {
+          puts "Disconnected, register called"
+          register(c, metadata)
         }
       }
+    end
+
+    def register(client, metadata)
+      @registration.send_msg(client.addr, metadata)
     end
 
     def bind(&block)
@@ -37,7 +39,7 @@ module Pair
         pair.setsockopt(ZMQ::LINGER, 0)
         pair.connect(client_addr)
 
-        yield Client.new(pair, @timeout)
+        yield Client.new(client_addr, pair, @timeout)
       }
     end
   end
