@@ -29,6 +29,8 @@ module Pair
           # TODO
           emit(:message, method, part2.copy_out_string)
         end
+        part1.close
+        part2.close
       }
     end
 

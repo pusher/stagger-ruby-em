@@ -31,6 +31,7 @@ module Pair
 
       registration.on(:message) { |m|
         client_addr = m.copy_out_string
+        m.close
 
         pair = @zmq.socket(ZMQ::PAIR)
         pair.setsockopt(ZMQ::LINGER, 0)
