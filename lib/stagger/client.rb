@@ -34,8 +34,8 @@ module Stagger
     def value(name, value = nil, weight = 1)
       if @connected
         if block_given?
-          v, w = yield
-          @aggregator.value(name, v, w)
+          vw = yield
+          @aggregator.value(name, *vw)
         else
           @aggregator.value(name, value, weight)
         end
