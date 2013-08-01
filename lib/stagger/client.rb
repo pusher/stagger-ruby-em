@@ -8,9 +8,8 @@ module Stagger
       @value_callbacks = {}
       @delta_callbacks = {}
       @callbacks = []
-      @deltas = Hash.new  { |h,k| h[k] = Delta.new }
 
-      reset_data
+      @aggregator = Aggregator.new(@zmq_client)
     end
 
     def register_count(name, &block)
@@ -28,7 +27,7 @@ module Stagger
     end
 
     def register_cb(&block)
-      @callbacks << block
+      @callbacks << [block, Aggregator.new(@zmq_client)]
     end
 
     def incr(name, count = 1)
@@ -60,8 +59,9 @@ module Stagger
 
     private
 
-    def reset_data
-      @aggregator = Aggregator.new(@zmq_client)
+    def reset_all
+      @aggregator.reset_all
+      @callbacks.each { |cb, agg| agg.reset_all }
     end
 
     def register(reg_address)
@@ -75,7 +75,7 @@ module Stagger
         # Reset data when disconnected so that old (potentially ancient) data
         # isn't sent on reconnect, which would be confusing default behaviour
         # TODO: Maybe make this behaviour configurable?
-        reset_data
+        reset_all
       }
     end
 
@@ -96,13 +96,11 @@ module Stagger
       end
 
       @aggregator.report(ts, aggregator_options)
-      reset_data
     end
 
     def run_and_report_async(ts)
       EM::Iterator.new(@callbacks, 10).each(
-        lambda { |cb, iter|
-          aggregator = Aggregator.new(@zmq_client)
+        lambda { |(cb, aggregator), iter|
           maybe_df = cb.call(aggregator)
           if maybe_df.kind_of?(EM::Deferrable)
             maybe_df.callback {

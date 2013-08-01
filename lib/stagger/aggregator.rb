@@ -2,6 +2,15 @@ module Stagger
   class Aggregator
     def initialize(zmq_client)
       @zmq_client = zmq_client
+      reset_all
+    end
+
+    def reset_all
+      @deltas = Hash.new  { |h,k| h[k] = Delta.new }
+      reset_data
+    end
+
+    def reset_data
       @counters = Hash.new { |h,k| h[k] = 0 }
       @values = Hash.new { |h,k| h[k] = Distribution.new }
     end
@@ -15,6 +24,15 @@ module Stagger
 
     def value(name, value, weight = 1)
       @values[name.to_sym].add(value.to_f, weight) if value
+    end
+
+    def delta(name, value)
+      incr(name, @deltas[name].delta(value))
+    end
+    alias :delta_incr :delta
+
+    def delta_value(name, value, weight = 1)
+      value(name, @deltas[name].delta(value), weight)
     end
 
     def report(ts, options)
@@ -31,6 +49,8 @@ module Stagger
       }
 
       @zmq_client.send_message(method, body)
+
+      reset_data()
     end
   end
 end
