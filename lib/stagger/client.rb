@@ -6,7 +6,9 @@ module Stagger
 
       @count_callbacks = {}
       @value_callbacks = {}
+      @delta_callbacks = {}
       @callbacks = []
+      @deltas = Hash.new  { |h,k| h[k] = Delta.new }
 
       reset_data
     end
@@ -19,6 +21,10 @@ module Stagger
     def register_value(name, &block)
       raise "Already registered #{name}" if @value_callbacks[name]
       @value_callbacks[name.to_sym] = block
+    end
+
+    def register_delta(name, &block)
+      @delta_callbacks[name.to_sym] = block
     end
 
     def register_cb(&block)
@@ -38,6 +44,16 @@ module Stagger
           @aggregator.value(name, *vw)
         else
           @aggregator.value(name, value, weight)
+        end
+      end
+    end
+
+    def delta(name, value = nil)
+      if @connected
+        if block_given?
+          @aggregator.delta(name, yield)
+        else
+          @aggregator.delta(name, value)
         end
       end
     end
@@ -72,6 +88,11 @@ module Stagger
       @value_callbacks.each do |name, cb|
         vw = cb.call
         @aggregator.value(name, *vw) if vw
+      end
+
+      @delta_callbacks.each do |name, cb|
+        v = cb.call
+        self.delta(name, v) if v
       end
 
       @aggregator.report(ts, aggregator_options)

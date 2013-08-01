@@ -15,5 +15,6 @@ end
 require 'stagger/event_emitter'
 require 'stagger/protocol'
 require 'stagger/aggregator'
+require 'stagger/delta'
 require 'stagger/client'
 require 'stagger/distribution'
