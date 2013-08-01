@@ -8,7 +8,7 @@ module Stagger
 
     def incr(name, count = 1)
       c = block_given? ? yield : count
-      if c
+      if c && c > 0
         @counters[name.to_sym] += c
       end
     end
