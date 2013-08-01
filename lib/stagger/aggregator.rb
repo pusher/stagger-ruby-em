@@ -7,7 +7,10 @@ module Stagger
     end
 
     def incr(name, count = 1)
-      @counters[name.to_sym] += block_given? ? yield : count
+      c = block_given? ? yield : count
+      if c
+        @counters[name.to_sym] += c
+      end
     end
 
     def value(name, value, weight = 1)
