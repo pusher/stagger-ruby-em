@@ -7,9 +7,9 @@ module Stagger
     end
 
     def delta(value)
-      if @value
-        @value, old_value = value, @value
-        return value - old_value
+      if @value && (delta = value - @value) >= 0
+        @value = value
+        return delta
       else
         @value = value
         return nil
