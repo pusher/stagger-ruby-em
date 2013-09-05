@@ -18,7 +18,9 @@ module Pair
         register(c, metadata)
         c.on(:disconnected) {
           puts "Disconnected, register called"
-          register(c, metadata)
+          EM.add_timer(0.1) {
+            register(c, metadata)
+          }
         }
       }
     end
