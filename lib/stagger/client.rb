@@ -12,6 +12,13 @@ module Stagger
       @aggregator = Aggregator.new(@zmq_client)
     end
 
+    # This should be called before the process exits. It explicity notifies
+    # stagger that the connection is shutting down, rather than relying on
+    # ping-pong messages to do the same (therefore stagger knows sooner).
+    def shutdown
+      @zmq_client.shutdown
+    end
+
     def register_count(name, &block)
       raise "Already registered #{name}" if @count_callbacks[name]
       @count_callbacks[name.to_sym] = block

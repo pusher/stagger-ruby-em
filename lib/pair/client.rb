@@ -44,6 +44,12 @@ module Pair
       @pair.send_msg(method, body)
     end
 
+    # Sends shutdown message
+    # TODO: Should unbind the pair connection
+    def shutdown
+      send("pair:shutdown", "")
+    end
+
     private
 
     def ping

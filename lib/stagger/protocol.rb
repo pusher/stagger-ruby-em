@@ -20,6 +20,10 @@ module Stagger
       return pair
     end
 
+    def shutdown
+      @pair.shutdown
+    end
+
     def command(method, msgpack_params)
       params = if !msgpack_params.empty?
         MessagePack.unpack(msgpack_params)
