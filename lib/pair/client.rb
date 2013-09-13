@@ -47,11 +47,11 @@ module Pair
     private
 
     def ping
-      send("ping")
+      send("pair:ping")
     end
 
     def pong
-      send("pong")
+      send("pair:pong")
     end
 
     def reset_activity
