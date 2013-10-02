@@ -20,9 +20,9 @@ module Pair
         reset_activity
 
         case (method = part1.copy_out_string)
-        when "pair:ping", "ping"
+        when "pair:ping"
           pong
-        when "pair:pong", "pong" # NOOP
+        when "pair:pong" # NOOP
         when "pair:shutdown"
           terminate(0)
         else
