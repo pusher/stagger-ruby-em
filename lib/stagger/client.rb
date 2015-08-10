@@ -1,8 +1,8 @@
 module Stagger
   class Client
     # Only 279 google results for "port 5867" :)
-    def initialize(reg_address = "tcp://127.0.0.1:5867")
-      register(reg_address)
+    def initialize(reg_address = "tcp://127.0.0.1:5867", zmq_context = Stagger.zmq)
+      register(reg_address, zmq_context)
 
       @count_callbacks = {}
       @value_callbacks = {}
@@ -71,8 +71,8 @@ module Stagger
       @callbacks.each { |cb, agg| agg.reset_all }
     end
 
-    def register(reg_address)
-      @zmq_client = Protocol.new(reg_address)
+    def register(reg_address, zmq_context)
+      @zmq_client = Protocol.new(reg_address, zmq_context)
       @zmq_client.on(:command, &method(:command))
       @zmq_client.on(:connected) {
         @connected = true

@@ -6,13 +6,14 @@ module Stagger
   class Protocol
     include EventEmitter
 
-    def initialize(reg_addr = "tcp://127.0.0.1:5867")
+    def initialize(reg_addr = "tcp://127.0.0.1:5867", zmq_context = Stagger.zmq)
       @reg_addr = reg_addr
+      @zmq_context = zmq_context
       @pair = register()
     end
 
     def register
-      reg = Pair::Registration.new(Stagger.zmq, @reg_addr, 13)
+      reg = Pair::Registration.new(@zmq_context, @reg_addr, 13)
       pair = reg.register_client
       pair.on(:connected) { emit(:connected) }
       pair.on(:disconnected) { emit(:disconnected) }
