@@ -73,7 +73,7 @@ module Stagger
 
     def register(reg_address, zmq_context)
       @zmq_client = Protocol.new(reg_address, zmq_context)
-      @zmq_client.on(:command, &method(:command))
+      @zmq_client.on(:command, &method(:on_command))
       @zmq_client.on(:connected) {
         @connected = true
       }
@@ -127,7 +127,7 @@ module Stagger
       )
     end
 
-    def command(method, params)
+    def on_command(method, params)
       case method
       when "report_all"
         ts = params["Timestamp"]

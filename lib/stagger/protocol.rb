@@ -17,7 +17,7 @@ module Stagger
       pair = reg.register_client
       pair.on(:connected) { emit(:connected) }
       pair.on(:disconnected) { emit(:disconnected) }
-      pair.on(:message, &method(:command))
+      pair.on(:message, &method(:on_command))
       return pair
     end
 
@@ -25,7 +25,7 @@ module Stagger
       @pair.shutdown
     end
 
-    def command(method, msgpack_params)
+    def on_command(method, msgpack_params)
       params = if !msgpack_params.empty?
         MessagePack.unpack(msgpack_params)
       else
