@@ -19,52 +19,62 @@ module Stagger
       @zmq_client.shutdown
     end
 
-    def register_count(name, &block)
-      raise "Already registered #{name}" if @count_callbacks[name]
-      @count_callbacks[name.to_sym] = block
+    def register_count(name, tags={}, &block)
+      k = key(name, tags)
+      raise "Already registered #{k}" if @count_callbacks[k]
+      @count_callbacks[k] = block
     end
 
-    def register_value(name, &block)
-      raise "Already registered #{name}" if @value_callbacks[name]
-      @value_callbacks[name.to_sym] = block
+    def register_value(name, tags={}, &block)
+      k = key(name, tags)
+      raise "Already registered #{k}" if @value_callbacks[k]
+      @value_callbacks[k] = block
     end
 
-    def register_delta(name, &block)
-      @delta_callbacks[name.to_sym] = block
+    def register_delta(name, tags={}, &block)
+      k = key(name, tags)
+      raise "Already registered #{k}" if @delta_callbacks[k]
+      @delta_callbacks[k] = block
     end
 
     def register_cb(&block)
       @callbacks << [block, Aggregator.new(@zmq_client)]
     end
 
-    def incr(name, count = 1)
+    def incr(name, count = 1, tags = {})
       if @connected
-        @aggregator.incr(name, block_given? ? yield : count)
+        @aggregator.incr(key(name, tags), block_given? ? yield : count)
       end
     end
 
-    def value(name, value = nil, weight = 1)
+    def value(name, value = nil, weight = 1, tags = {})
       if @connected
         if block_given?
           vw = yield
-          @aggregator.value(name, *vw)
+          @aggregator.value(key(name, tags), *vw)
         else
-          @aggregator.value(name, value, weight)
+          @aggregator.value(key(name, tags), value, weight)
         end
       end
     end
 
-    def delta(name, value = nil)
+    def delta(name, value = nil, tags = {})
       if @connected
-        if block_given?
-          @aggregator.delta(name, yield)
-        else
-          @aggregator.delta(name, value)
-        end
+        value = yield if block_given?
+        @aggregator.delta(key(name, tags), value)
       end
     end
 
     private
+
+    def key(name, tags)
+      return name.to_sym if tags.empty?
+      # Make sure the keys and values are strings and ordered
+      tags = tags.each_with_object({}) do |(k, v), hash|
+        hash[k.to_s] = v.to_s
+      end
+      "#{name},#{tags.sort.map{|pair| pair.join('=')}.join(',')}"
+    end
 
     def reset_all
       @aggregator.reset_all
