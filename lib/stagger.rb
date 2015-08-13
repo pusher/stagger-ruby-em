@@ -1,20 +1,20 @@
-require 'em-zeromq'
-
 module Stagger
-  class << self
-    def default
-      @default ||= Client.new
-    end
-
-    def zmq
-      @ctx ||= EM::ZeroMQ::Context.new(1)
-    end
+  def self.default
+    @default ||= Client.new
   end
 end
 
+require 'eventmachine'
+require 'msgpack'
+
+require 'logger'
+
 require 'stagger/event_emitter'
-require 'stagger/protocol'
+require 'stagger/protocol_parser'
+require 'stagger/connection'
+
 require 'stagger/aggregator'
 require 'stagger/delta'
-require 'stagger/client'
 require 'stagger/distribution'
+
+require 'stagger/client'

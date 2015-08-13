@@ -1,22 +1,24 @@
 module Stagger
   class Client
-    # Only 279 google results for "port 5867" :)
-    def initialize(reg_address = "tcp://127.0.0.1:5867", zmq_context = Stagger.zmq)
-      register(reg_address, zmq_context)
-
+    attr_accessor :logger
+    # Only 166 google results for "port 5866" :)
+    def initialize(host = '127.0.0.1', port = 5866, logger = Logger.new(STDOUT))
       @count_callbacks = {}
       @value_callbacks = {}
       @delta_callbacks = {}
       @callbacks = []
+      @logger = logger
 
-      @aggregator = Aggregator.new(@zmq_client)
+      setup_connection(host, port)
+
+      @aggregator = Aggregator.new(@conn)
     end
 
     # This should be called before the process exits. It explicity notifies
     # stagger that the connection is shutting down, rather than relying on
     # ping-pong messages to do the same (therefore stagger knows sooner).
     def shutdown
-      @zmq_client.shutdown
+      @conn.shutdown
     end
 
     def register_count(name, tags={}, &block)
@@ -38,7 +40,7 @@ module Stagger
     end
 
     def register_cb(&block)
-      @callbacks << [block, Aggregator.new(@zmq_client)]
+      @callbacks << [block, Aggregator.new(@conn)]
     end
 
     def incr(name, count = 1, tags = {})
@@ -81,19 +83,26 @@ module Stagger
       @callbacks.each { |cb, agg| agg.reset_all }
     end
 
-    def register(reg_address, zmq_context)
-      @zmq_client = Protocol.new(reg_address, zmq_context)
-      @zmq_client.on(:command, &method(:on_command))
-      @zmq_client.on(:connected) {
+    def setup_connection(host, port)
+      @conn = EM.connect(host, port, Connection, host, port)
+      @conn.on(:command, &method(:on_command))
+      @conn.on(:connected) {
+        @logger.info("stagger connected to #{host}:#{port}")
         @connected = true
       }
-      @zmq_client.on(:disconnected) {
+      @conn.on(:disconnected) {
+        @logger.info("stagger disconnected from #{host}:#{port}")
         @connected = false
         # Reset data when disconnected so that old (potentially ancient) data
         # isn't sent on reconnect, which would be confusing default behaviour
         # TODO: Maybe make this behaviour configurable?
         reset_all
       }
+      @conn.on(:error) { |reason|
+        @logger.info("stagger error: #{reason}")
+        raise ConnectionError, reason
+      }
+      @conn
     end
 
     def run_and_report_sync(ts, aggregator_options)
@@ -132,7 +141,7 @@ module Stagger
           end
         },
         lambda {
-          Aggregator.new(@zmq_client).report(ts, complete: true)
+          Aggregator.new(@conn).report(ts, complete: true)
         }
       )
     end
@@ -148,7 +157,7 @@ module Stagger
           run_and_report_sync(ts, complete: true)
         end
       else
-        p ["Unknown command", method]
+        raise ArgumentError, "Unknown command #{method}"
       end
     end
   end
