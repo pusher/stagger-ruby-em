@@ -1,7 +1,7 @@
 module Stagger
   class Aggregator
-    def initialize(zmq_client)
-      @zmq_client = zmq_client
+    def initialize(conn)
+      @conn = conn
       reset_all
     end
 
@@ -48,7 +48,7 @@ module Stagger
         end,
       }
 
-      @zmq_client.send_message(method, body)
+      @conn.send_command(method, body)
 
       reset_data()
     end

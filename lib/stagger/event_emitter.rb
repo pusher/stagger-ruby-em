@@ -5,6 +5,7 @@ module Stagger
     end
 
     def emit(event, *args)
+      p [:emit, event, *args]
       _listeners[event].each { |l| l.call(*args) }
     end
 
