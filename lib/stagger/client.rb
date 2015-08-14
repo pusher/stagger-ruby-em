@@ -1,89 +1,108 @@
 module Stagger
   class Client
-    # Only 279 google results for "port 5867" :)
-    def initialize(reg_address = "tcp://127.0.0.1:5867")
-      register(reg_address)
-
+    attr_accessor :logger
+    # Only 166 google results for "port 5866" :)
+    def initialize(host = '127.0.0.1', port = 5866, logger = Logger.new(STDOUT))
       @count_callbacks = {}
       @value_callbacks = {}
       @delta_callbacks = {}
       @callbacks = []
+      @logger = logger
 
-      @aggregator = Aggregator.new(@zmq_client)
+      setup_connection(host, port)
+
+      @aggregator = Aggregator.new(@conn)
     end
 
     # This should be called before the process exits. It explicity notifies
     # stagger that the connection is shutting down, rather than relying on
     # ping-pong messages to do the same (therefore stagger knows sooner).
     def shutdown
-      @zmq_client.shutdown
+      @conn.shutdown
     end
 
-    def register_count(name, &block)
-      raise "Already registered #{name}" if @count_callbacks[name]
-      @count_callbacks[name.to_sym] = block
+    def register_count(name, tags={}, &block)
+      k = key(name, tags)
+      raise "Already registered #{k}" if @count_callbacks[k]
+      @count_callbacks[k] = block
     end
 
-    def register_value(name, &block)
-      raise "Already registered #{name}" if @value_callbacks[name]
-      @value_callbacks[name.to_sym] = block
+    def register_value(name, tags={}, &block)
+      k = key(name, tags)
+      raise "Already registered #{k}" if @value_callbacks[k]
+      @value_callbacks[k] = block
     end
 
-    def register_delta(name, &block)
-      @delta_callbacks[name.to_sym] = block
+    def register_delta(name, tags={}, &block)
+      k = key(name, tags)
+      raise "Already registered #{k}" if @delta_callbacks[k]
+      @delta_callbacks[k] = block
     end
 
     def register_cb(&block)
-      @callbacks << [block, Aggregator.new(@zmq_client)]
+      @callbacks << [block, Aggregator.new(@conn)]
     end
 
-    def incr(name, count = 1)
+    def incr(name, count = 1, tags = {})
       if @connected
-        @aggregator.incr(name, block_given? ? yield : count)
+        @aggregator.incr(key(name, tags), block_given? ? yield : count)
       end
     end
 
-    def value(name, value = nil, weight = 1)
+    def value(name, value = nil, weight = 1, tags = {})
       if @connected
         if block_given?
           vw = yield
-          @aggregator.value(name, *vw)
+          @aggregator.value(key(name, tags), *vw)
         else
-          @aggregator.value(name, value, weight)
+          @aggregator.value(key(name, tags), value, weight)
         end
       end
     end
 
-    def delta(name, value = nil)
+    def delta(name, value = nil, tags = {})
       if @connected
-        if block_given?
-          @aggregator.delta(name, yield)
-        else
-          @aggregator.delta(name, value)
-        end
+        value = yield if block_given?
+        @aggregator.delta(key(name, tags), value)
       end
     end
 
     private
+
+    def key(name, tags)
+      return name.to_sym if tags.empty?
+      # Make sure the keys and values are strings and ordered
+      tags = tags.each_with_object({}) do |(k, v), hash|
+        hash[k.to_s] = v.to_s
+      end
+      "#{name},#{tags.sort.map{|pair| pair.join('=')}.join(',')}"
+    end
 
     def reset_all
       @aggregator.reset_all
       @callbacks.each { |cb, agg| agg.reset_all }
     end
 
-    def register(reg_address)
-      @zmq_client = Protocol.new(reg_address)
-      @zmq_client.on(:command, &method(:command))
-      @zmq_client.on(:connected) {
+    def setup_connection(host, port)
+      @conn = EM.connect(host, port, Connection, host, port)
+      @conn.on(:command, &method(:on_command))
+      @conn.on(:connected) {
+        @logger.info("stagger connected to #{host}:#{port}")
         @connected = true
       }
-      @zmq_client.on(:disconnected) {
+      @conn.on(:disconnected) {
+        @logger.info("stagger disconnected from #{host}:#{port}")
         @connected = false
         # Reset data when disconnected so that old (potentially ancient) data
         # isn't sent on reconnect, which would be confusing default behaviour
         # TODO: Maybe make this behaviour configurable?
         reset_all
       }
+      @conn.on(:error) { |reason|
+        @logger.info("stagger error: #{reason}")
+        raise ConnectionError, reason
+      }
+      @conn
     end
 
     def run_and_report_sync(ts, aggregator_options)
@@ -122,12 +141,12 @@ module Stagger
           end
         },
         lambda {
-          Aggregator.new(@zmq_client).report(ts, complete: true)
+          Aggregator.new(@conn).report(ts, complete: true)
         }
       )
     end
 
-    def command(method, params)
+    def on_command(method, params)
       case method
       when "report_all"
         ts = params["Timestamp"]
@@ -138,7 +157,7 @@ module Stagger
           run_and_report_sync(ts, complete: true)
         end
       else
-        p ["Unknown command", method]
+        raise ArgumentError, "Unknown command #{method}"
       end
     end
   end
