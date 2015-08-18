@@ -100,7 +100,6 @@ module Stagger
       }
       @conn.on(:error) { |reason|
         @logger.info("stagger error: #{reason}")
-        raise ConnectionError, reason
       }
       @conn
     end
