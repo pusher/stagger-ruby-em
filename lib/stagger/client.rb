@@ -99,7 +99,7 @@ module Stagger
         reset_all
       }
       @conn.on(:error) { |reason|
-        @logger.info("stagger error: #{reason}")
+        @logger.error("stagger connection error: #{reason}")
       }
       @conn
     end
@@ -131,7 +131,8 @@ module Stagger
             maybe_df.callback {
               aggregator.report(ts, complete: false)
               iter.next
-            }.errback {
+            }.errback { |reason|
+              @logger.error("stagger reporting error: #{reason}")
               iter.next
             }
           else
