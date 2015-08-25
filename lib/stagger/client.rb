@@ -2,13 +2,13 @@ module Stagger
   class Client
     attr_accessor :logger
     # Only 166 google results for "port 5866" :)
-    def initialize(host = '127.0.0.1', port = 5866, logger = Logger.new(STDOUT))
+    def initialize(host = '127.0.0.1', port = 5866, logger = Logger.new(STDOUT), process_info = {pid: Process.pid, cmd: $0})
       @count_callbacks = {}
       @value_callbacks = {}
       @delta_callbacks = {}
       @callbacks = []
       @logger = logger
-
+      @process_info = sanitize_process_info(process_info)
       setup_connection(host, port)
 
       @aggregator = Aggregator.new(@conn)
@@ -89,6 +89,7 @@ module Stagger
       @conn.on(:connected) {
         @logger.info("stagger connected to #{host}:#{port}")
         @connected = true
+        send_register_process(@process_info)
       }
       @conn.on(:disconnected) {
         @logger.info("stagger disconnected from #{host}:#{port}")
@@ -159,6 +160,30 @@ module Stagger
       else
         raise ArgumentError, "Unknown command #{method}"
       end
+    end
+
+    private
+
+    # Makes sure all the process info tags and values are strings
+    def sanitize_process_info(tags={})
+      return nil if tags.empty?
+
+      tags.each_with_object({}) do |(k, v), hash|
+        hash[to_utf8(k)] = to_utf8(v)
+      end
+    end
+
+    def send_register_process(process_info)
+      return if process_info.nil?
+      @conn.send_command(:register_process, {Tags: process_info})
+    end
+
+    # Avoid sending binary data with MessagePack. The format has evolved and
+    # there are some compatiblity issues.
+    #
+    # Favor losing characters during transcoding over raising exceptions.
+    def to_utf8(str)
+      str.to_s.encode('utf-8', invalid: :replace, undef: :replace)
     end
   end
 end

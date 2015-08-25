@@ -36,7 +36,7 @@ module Stagger
     end
 
     def report(ts, options)
-      method = options[:complete] ? "stats_complete" : "stats_partial"
+      method = options[:complete] ? :stats_complete : :stats_partial
 
       body = {
         Timestamp: ts,
