@@ -15,7 +15,7 @@ module Stagger
     # Encodes and writes data to the socket
     def send_command(method, params = {})
       params = MessagePack.pack(params)
-      send_data("%d,%d.%s:%s" % [method.bytesize, params.bytesize, method, params])
+      send_data("%d,%d.%s:%s" % [method.to_s.bytesize, params.bytesize, method, params])
     end
 
     # Once shutdown is called there is no way back
