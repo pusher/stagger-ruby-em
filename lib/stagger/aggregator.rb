@@ -1,5 +1,9 @@
+require 'stagger/tags'
+
 module Stagger
   class Aggregator
+    include Tags
+
     def initialize(conn)
       @conn = conn
       reset_all
@@ -15,25 +19,29 @@ module Stagger
       @values = Hash.new { |h,k| h[k] = Distribution.new }
     end
 
-    def incr(key, count = 1)
+    ## Metrics
+
+    def incr(key, count = 1, tags = {})
       c = block_given? ? yield : count
       if c && c > 0
-        @counters[key] += c
+        @counters[to_key(key, tags)] += c
       end
     end
 
-    def value(key, value, weight = 1)
-      @values[key].add(value.to_f, weight) if value
+    def value(key, value, weight = 1, tags = {})
+      @values[to_key(key, tags)].add(value.to_f, weight) if value
     end
 
-    def delta(key, value)
-      incr(key, @deltas[key].delta(value))
+    def delta(key, value, tags = {})
+      incr(key, @deltas[to_key(key, tags)].delta(value))
     end
     alias :delta_incr :delta
 
-    def delta_value(key, value, weight = 1)
-      value(key, @deltas[key].delta(value), weight)
+    def delta_value(key, value, weight = 1, tags = {})
+      value(key, @deltas[to_key(key, tags)].delta(value), weight)
     end
+
+    ## Reporting
 
     def report(ts, options)
       method = options[:complete] ? :stats_complete : :stats_partial

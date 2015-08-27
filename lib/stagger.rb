@@ -9,6 +9,7 @@ require 'msgpack'
 
 require 'logger'
 
+require 'stagger/tags'
 require 'stagger/event_emitter'
 require 'stagger/protocol_parser'
 require 'stagger/connection'

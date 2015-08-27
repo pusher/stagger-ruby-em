@@ -13,5 +13,9 @@ EM.run {
     }
   end
 
+  Stagger.default.register_cb { |agg|
+    agg.incr(:"app.woot", 1, account_id: rand(100))
+  }
+
   puts "Waiting..."
 }

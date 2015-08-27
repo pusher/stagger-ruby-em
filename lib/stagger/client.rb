@@ -1,5 +1,9 @@
+require 'stagger/tags'
+
 module Stagger
   class Client
+    include Tags
+
     attr_accessor :logger
     # Only 166 google results for "port 5866" :)
     def initialize(host = '127.0.0.1', port = 5866, logger = Logger.new(STDOUT), process_info = {pid: Process.pid, cmd: $0})
@@ -22,19 +26,19 @@ module Stagger
     end
 
     def register_count(name, tags={}, &block)
-      k = key(name, tags)
+      k = to_key(name, tags)
       raise "Already registered #{k}" if @count_callbacks[k]
       @count_callbacks[k] = block
     end
 
     def register_value(name, tags={}, &block)
-      k = key(name, tags)
+      k = to_key(name, tags)
       raise "Already registered #{k}" if @value_callbacks[k]
       @value_callbacks[k] = block
     end
 
     def register_delta(name, tags={}, &block)
-      k = key(name, tags)
+      k = to_key(name, tags)
       raise "Already registered #{k}" if @delta_callbacks[k]
       @delta_callbacks[k] = block
     end
@@ -45,38 +49,30 @@ module Stagger
 
     def incr(name, count = 1, tags = {})
       if @connected
-        @aggregator.incr(key(name, tags), block_given? ? yield : count)
+        @aggregator.incr(name, block_given? ? yield : count, tags)
       end
     end
 
     def value(name, value = nil, weight = 1, tags = {})
       if @connected
         if block_given?
-          vw = yield
-          @aggregator.value(key(name, tags), *vw)
-        else
-          @aggregator.value(key(name, tags), value, weight)
+          value2, weight2, tags2 = yield
+          value = value2 if value2
+          weight = weight2 if weight2
+          tags = tags2 if tags2
         end
+        @aggregator.value(name, value, weight, tags)
       end
     end
 
     def delta(name, value = nil, tags = {})
       if @connected
         value = yield if block_given?
-        @aggregator.delta(key(name, tags), value)
+        @aggregator.delta(name, value, tags)
       end
     end
 
     private
-
-    def key(name, tags)
-      return name.to_sym if tags.empty?
-      # Make sure the keys and values are strings and ordered
-      tags = tags.each_with_object({}) do |(k, v), hash|
-        hash[k.to_s] = v.to_s
-      end
-      "#{name},#{tags.sort.map{|pair| pair.join('=')}.join(',')}"
-    end
 
     def reset_all
       @aggregator.reset_all
