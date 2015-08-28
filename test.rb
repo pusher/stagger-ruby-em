@@ -1,4 +1,4 @@
-#!/usr/local/bin/ruby
+#!/usr/bin/env ruby
 # -*- coding: utf-8 -*-
 require 'bundler/setup'
 require 'stagger'
