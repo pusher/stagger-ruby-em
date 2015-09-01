@@ -25,7 +25,7 @@ module Stagger
       return buffer, nil, nil if size < (8 + body_size)
 
       if !buffer.start_with?(MAGIC_HEADER)
-        fail(EncodingError, "Unknown header #{buffer.byteslice(0, 3).bytes.inspect}")
+        raise(EncodingError, "Unknown header #{buffer.byteslice(0, 3).bytes.inspect}")
       end
 
       method = to_method(buffer.byteslice(3))
@@ -44,12 +44,12 @@ module Stagger
 
     def to_byte(method)
       @method_to_byte[method] ||
-        fail(ArgumentError, "Unknown method #{method}")
+        raise(ArgumentError, "Unknown method #{method}")
     end
 
     def to_method(byte)
       @byte_to_method[byte] ||
-        fail(ArgumentError, "Unknown byte #{byte.inspect} for method")
+        raise(ArgumentError, "Unknown byte #{byte.inspect} for method")
     end
   end
 
