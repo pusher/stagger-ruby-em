@@ -6,16 +6,16 @@ module Stagger
   class Connection < EventMachine::Connection
     include EventEmitter
 
-    def initialize(host, port, retry_after_s = 5)
+    def initialize(host, port, retry_after_s = 5, encoding = TCPv2Encoding)
       @host = host
       @port = port
       @retry_after_s = retry_after_s
+      @encoding = encoding
     end
 
     # Encodes and writes data to the socket
     def send_command(method, params = {})
-      params = MessagePack.pack(params)
-      send_data("%d,%d.%s:%s" % [method.to_s.bytesize, params.bytesize, method, params])
+      send_data @encoding.encode(method, params)
     end
 
     # Once shutdown is called there is no way back
@@ -31,24 +31,20 @@ module Stagger
       # Disconnect after 30 seconds if no activity
       self.comm_inactivity_timeout = 30
 
-      @parser = ProtocolParser.new
-
-      @parser.on(:command) do |method, params|
-        emit(:command, method, params)
-      end
-
-      @parser.on(:error) do |reason|
-        emit(:error, reason)
-        # Reset everything if there is an error
-        close_connection
-      end
+      @buffer = ""
 
       emit(:connected)
     end
 
     # Called by EM when the other side has sent some data and it arrived
     def receive_data(data)
-      @parser.feed(data)
+      @buffer, method, params = @encoding.decode(@buffer + data)
+
+      emit(:command, method, params) if method
+    rescue => ex
+      emit(:error, ex)
+      # Reset everything if there is an error
+      close_connection
     end
 
     # Called by EM when the connection is closed

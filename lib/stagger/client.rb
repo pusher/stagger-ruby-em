@@ -5,8 +5,7 @@ module Stagger
     include Tags
 
     attr_accessor :logger
-    # Only 166 google results for "port 5866" :)
-    def initialize(host = '127.0.0.1', port = 5866, logger = Logger.new(STDOUT), process_info = {pid: Process.pid, cmd: $0})
+    def initialize(host = '127.0.0.1', port = 5865, logger = Logger.new(STDOUT), process_info = {pid: Process.pid, cmd: $0})
       @count_callbacks = {}
       @value_callbacks = {}
       @delta_callbacks = {}
@@ -145,7 +144,7 @@ module Stagger
 
     def on_command(method, params)
       case method
-      when "report_all"
+      when :report_all
         ts = params["Timestamp"]
         if @callbacks.any?
           run_and_report_sync(ts, complete: false)
