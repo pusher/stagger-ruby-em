@@ -33,7 +33,12 @@ module Stagger
     end
 
     def delta(key, value, tags = {})
-      incr(key, @deltas[to_key(key, tags)].delta(value))
+      k = to_key(key, tags)
+      v = @deltas[k].delta(value)
+
+      if v
+        @counters[k] += value
+      end
     end
     alias :delta_incr :delta
 
