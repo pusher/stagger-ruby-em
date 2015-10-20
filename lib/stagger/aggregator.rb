@@ -36,9 +36,7 @@ module Stagger
       k = to_key(key, tags)
       v = @deltas[k].delta(value)
 
-      if v
-        @counters[k] += value
-      end
+      @counters[k] += v if v
     end
     alias :delta_incr :delta
 
