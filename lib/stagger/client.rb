@@ -143,6 +143,9 @@ module Stagger
     end
 
     def on_command(method, params)
+      @logger.debug("stagger command received: #{method} (#{params})")
+      start_time = Time.now
+
       case method
       when :report_all
         ts = params["Timestamp"]
@@ -155,6 +158,8 @@ module Stagger
       else
         raise ArgumentError, "Unknown command #{method}"
       end
+
+      @logger.debug("Took #{Time.now - start_time}s to process stagger command")
     end
 
     private
